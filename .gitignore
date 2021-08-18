@@ -93,3 +93,4 @@ lint/tmp/
 .pub-cache/
 .pub/
 /build/
+/android/app/google-services.json
