@@ -1,11 +1,9 @@
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:moviereviewsapp/models/movie.dart';
 import 'package:moviereviewsapp/screens/home.dart';
 import 'package:moviereviewsapp/widgets/drawer.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 
 class AddEditMovies extends StatefulWidget {
   static const id = '/AddMovie';
@@ -19,29 +17,14 @@ class AddEditMovies extends StatefulWidget {
 }
 
 class _AddEditMoviesState extends State<AddEditMovies> {
-  bool isLoading = false;
   final _titleFocusNode = FocusNode();
   final _directorFocusNode = FocusNode();
   final _imageUrlContoller = TextEditingController();
   final _imageFocusNode = FocusNode();
   final _form = GlobalKey<FormState>();
-  late XFile? _image;
   TextEditingController controllerMName = new TextEditingController();
   TextEditingController controllerMDirect = new TextEditingController();
-  bool galImage = false;
-  bool urlImage = false;
-  bool invalidImage = false;
-  pickImage() async {
-    final ImagePicker _picker = ImagePicker();
-    final XFile? image = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 40,
-    );
-    setState(() {
-      _image = image;
-      galImage = true;
-    });
-  }
+  var invalidImage = false;
 
   @override
   void initState() {
@@ -49,53 +32,66 @@ class _AddEditMoviesState extends State<AddEditMovies> {
       _imageUrlContoller.text = widget.movieModel!.posterUrl;
       controllerMDirect.text = widget.movieModel!.movieDirect;
       controllerMName.text = widget.movieModel!.movieName;
-      urlImage = true;
     }
     super.initState();
   }
 
+  @override
+  void dispose() {
+    _titleFocusNode.dispose();
+    _directorFocusNode.dispose();
+    controllerMDirect.dispose();
+    controllerMName.dispose();
+    _imageUrlContoller.dispose();
+    _imageFocusNode.dispose();
+    super.dispose();
+  }
+
   submit() async {
-    var imageUrl;
-    print(_imageUrlContoller.text);
-    print(controllerMName.text);
-    print(controllerMDirect.text);
-    if (controllerMDirect.text.isEmpty ||
-        controllerMName.text.isEmpty ||
-        invalidImage == true) {
-      final snackBar = SnackBar(
-        content: const Text('Please Enter Valid Details!'),
-      );
-      ScaffoldMessenger.of(context).showSnackBar(snackBar);
-    }
-    if (controllerMDirect.text.isNotEmpty &&
-        controllerMName.text.isNotEmpty &&
-        invalidImage == false) {
-      if (galImage) {
-        setState(() {
-          isLoading = true;
-        });
-        final ref = FirebaseStorage.instance
-            .ref()
-            .child('movieImages')
-            .child(controllerMName.text + DateTime.now().toString() + '.jpg');
-        await ref.putFile(File(_image!.path)).whenComplete(() => null);
-        imageUrl = await ref.getDownloadURL();
+    if (_form.currentState!.validate()) {
+      final FirebaseAuth auth = FirebaseAuth.instance;
+      final User? user = auth.currentUser;
+      final uid = user!.uid;
+      print(uid);
+      print(_imageUrlContoller.text);
+      print(controllerMName.text);
+      print(controllerMDirect.text);
+      if (controllerMDirect.text.trim().isEmpty ||
+          controllerMName.text.trim().isEmpty ||
+          invalidImage == true) {
+        final snackBar = SnackBar(
+          content: const Text('Please Enter Valid Details!'),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(snackBar);
       }
-      final Movie movieData = Movie(
-          id: DateTime.now().toString(),
-          movieName: controllerMName.text,
-          movieDirect: controllerMDirect.text,
-          posterUrl: galImage ? imageUrl : _imageUrlContoller.text);
-      if (widget.isEdit) {
-        var box = await Hive.openBox<Movie>('movie');
-        box.putAt(widget.position, movieData);
-        Navigator.pushAndRemoveUntil(context,
-            MaterialPageRoute(builder: (_) => MyHomePage()), (r) => false);
-      } else {
-        var box = await Hive.openBox<Movie>('movie');
-        box.add(movieData);
-        Navigator.pushAndRemoveUntil(context,
-            MaterialPageRoute(builder: (_) => MyHomePage()), (r) => false);
+      if (_imageUrlContoller.text.trim().isEmpty) {
+        final snackBar = SnackBar(
+          content: const Text('Please Enter Valid Image!'),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      }
+      if (controllerMDirect.text.trim().isNotEmpty &&
+          controllerMName.text.trim().isNotEmpty &&
+          _imageUrlContoller.text.trim().isNotEmpty &&
+          invalidImage == false) {
+        final Movie movieData = Movie(
+            id: DateTime.now().toString(),
+            movieName: controllerMName.text,
+            movieDirect: controllerMDirect.text,
+            posterUrl: _imageUrlContoller.text,
+            uID: uid.toString()
+            );
+        if (widget.isEdit) {
+          var box = await Hive.openBox<Movie>('movie');
+          box.putAt(widget.position, movieData);
+          Navigator.pushAndRemoveUntil(context,
+              MaterialPageRoute(builder: (_) => MyHomePage()), (r) => false);
+        } else {
+          var box = await Hive.openBox<Movie>('movie');
+          box.add(movieData);
+          Navigator.pushAndRemoveUntil(context,
+              MaterialPageRoute(builder: (_) => MyHomePage()), (r) => false);
+        }
       }
     }
   }
@@ -137,285 +133,263 @@ class _AddEditMoviesState extends State<AddEditMovies> {
         ],
       ),
       drawer: MainDrawer(),
-      body: isLoading
-          ? Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            )
-          : SingleChildScrollView(
-              child: Container(
-                color: Colors.white,
-                child: Form(
-                  key: _form,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 15.0),
-                        child: Text('Movie Name:'),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(15.0),
-                        child: TextFormField(
-                          focusNode: _titleFocusNode,
-                          controller: controllerMName,
-                          validator: (value) {
-                            if (value!.isEmpty) {
-                              return 'Please enter a Movie name.';
-                            } else
-                              return null;
-                          },
-                          autovalidateMode: AutovalidateMode.onUserInteraction,
-                          textInputAction: TextInputAction.next,
-                          decoration: InputDecoration(
-                              enabledBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Colors.deepPurple,
-                                ),
-                                borderRadius: BorderRadius.circular(10.0),
-                              ),
-                              hintText: "Enter Movie Name ....",
-                              focusedBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Colors.deepPurple,
-                                ),
-                                borderRadius: BorderRadius.circular(10.0),
-                              ),
-                              focusColor: Colors.deepPurple),
-                        ),
-                      ),
-                      SizedBox(height: 10),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 15.0),
-                        child: Text('Movie Poster:'),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(15.0),
-                        child: TextFormField(
-                          focusNode: _imageFocusNode,
-                          textInputAction: TextInputAction.next,
-                          controller: _imageUrlContoller,
-                          validator: (value) {
-                            if (value!.isEmpty) {
-                              return 'No Url Entered';
-                            }
-                            if (!value.startsWith('http') &&
-                                !value.startsWith('https')) {
-                              return 'Invalid Url Entered';
-                            }
-                            if (!value.endsWith('.png') &&
-                                !value.endsWith('.jpg')) {
-                              return 'Invalid Url Entered';
-                            }
-                            return null;
-                          },
-                          onFieldSubmitted: (value) {
-                            print(_imageUrlContoller.text);
-                            setState(() {
-                              bool _validURL =
-                                  Uri.parse(_imageUrlContoller.text).isAbsolute;
-                              if (_validURL) {
-                                urlImage = true;
-                              } else {
-                                invalidImage = true;
-                              }
-                            });
-                          },
-                          decoration: InputDecoration(
-                              enabledBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Colors.deepPurple,
-                                ),
-                                borderRadius: BorderRadius.circular(10.0),
-                              ),
-                              hintText: "Enter Poster Url ....",
-                              focusedBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Colors.deepPurple,
-                                ),
-                                borderRadius: BorderRadius.circular(10.0),
-                              ),
-                              focusColor: Colors.deepPurple),
-                        ),
-                      ),
-                      SizedBox(height: 10),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 15.0),
-                        child: Text('Director Name:'),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(15.0),
-                        child: TextFormField(
-                          focusNode: _directorFocusNode,
-                          controller: controllerMDirect,
-                          validator: (value) {
-                            if (value!.isEmpty) {
-                              return 'Please enter a name.';
-                            } else
-                              return null;
-                          },
-                          autovalidateMode: AutovalidateMode.onUserInteraction,
-                          decoration: InputDecoration(
-                              enabledBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Colors.deepPurple,
-                                ),
-                                borderRadius: BorderRadius.circular(10.0),
-                              ),
-                              hintText: "Enter Director Name ....",
-                              focusedBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Colors.deepPurple,
-                                ),
-                                borderRadius: BorderRadius.circular(10.0),
-                              ),
-                              focusColor: Colors.deepPurple),
-                          onEditingComplete: () {},
-                        ),
-                      ),
-                      SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          Expanded(
-                            child: new Container(
-                                margin: const EdgeInsets.only(
-                                    left: 15.0, right: 15.0),
-                                child: Divider(
-                                  color: Colors.black,
-                                  height: 50,
-                                )),
+      body: SingleChildScrollView(
+        child: Container(
+          color: Colors.white,
+          child: Form(
+            key: _form,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 15.0),
+                  child: Text('Movie Name:'),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(15.0),
+                  child: TextFormField(
+                    focusNode: _titleFocusNode,
+                    controller: controllerMName,
+                    validator: (value) {
+                      if (value!.trim().isEmpty) {
+                        return 'Please enter a Movie name.';
+                      } else
+                        return null;
+                    },
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.deepPurple,
                           ),
-                          Text("OR"),
-                          Expanded(
-                            child: new Container(
-                              margin: const EdgeInsets.only(
-                                  left: 15.0, right: 15.0),
-                              child: Divider(
-                                color: Colors.black,
-                                height: 50,
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                        hintText: "Enter Movie Name ....",
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.red,
+                          ),
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.red,
+                          ),
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.deepPurple,
+                          ),
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                        focusColor: Colors.deepPurple),
+                  ),
+                ),
+                SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.only(left: 15.0),
+                  child: Text('Movie Poster:'),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(15.0),
+                  child: TextFormField(
+                    focusNode: _imageFocusNode,
+                    textInputAction: TextInputAction.next,
+                    controller: _imageUrlContoller,
+                    validator: (value) {
+                      if (value!.trim().isEmpty) {
+                        setState(() {
+                          invalidImage = true;
+                        });
+                        return 'No Url Entered';
+                      }
+                      if (value.startsWith('http') == true &&
+                          value.startsWith('https') == false) {
+                        setState(() {
+                          invalidImage = true;
+                        });
+                        print(invalidImage);
+                        return 'Invalid Url Entered';
+                      }
+                      if (value.endsWith('.png') == false &&
+                          value.endsWith('.jpg') == false) {
+                        setState(() {
+                          invalidImage = true;
+                        });
+                        print(invalidImage);
+                        return 'Invalid Url Entered';
+                      }
+                      return null;
+                    },
+                    onFieldSubmitted: (value) {
+                      print(_imageUrlContoller.text);
+                      setState(() {
+                        bool _validURL =
+                            Uri.parse(_imageUrlContoller.text).isAbsolute;
+                        if (_validURL) {
+                          setState(() {
+                            invalidImage = false;
+                          });
+                        } else {
+                          invalidImage = true;
+                        }
+                      });
+                    },
+                    decoration: InputDecoration(
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.deepPurple,
+                          ),
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.red,
+                          ),
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.deepPurple,
+                          ),
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                        hintText: "Enter Poster Url ....",
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.deepPurple,
+                          ),
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                        focusColor: Colors.deepPurple),
+                  ),
+                ),
+                SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.only(left: 15.0),
+                  child: Text('Director Name:'),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(15.0),
+                  child: TextFormField(
+                    focusNode: _directorFocusNode,
+                    controller: controllerMDirect,
+                    validator: (value) {
+                      if (value!.trim().isEmpty) {
+                        return 'Please enter a name.';
+                      } else
+                        return null;
+                    },
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    decoration: InputDecoration(
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.deepPurple,
+                          ),
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                        hintText: "Enter Director Name ....",
+                        errorBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.red,
+                          ),
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.red,
+                          ),
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.deepPurple,
+                          ),
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                        focusColor: Colors.deepPurple),
+                    onEditingComplete: () {},
+                  ),
+                ),
+                SizedBox(height: 20),
+                invalidImage
+                    ? Column(children: [
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Center(
+                            child: Container(
+                              child: Text('Invalid URL',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16)),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Image.asset('assets/place_holder.png'),
+                        ),
+                      ])
+                    : (invalidImage == false &&
+                            _imageUrlContoller.text.trim().isNotEmpty)
+                        ? Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Align(
+                              alignment: Alignment.topRight,
+                              child: IconButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _imageUrlContoller.clear();
+                                  });
+                                },
+                                icon: Icon(Icons.close),
                               ),
                             ),
                           )
-                        ],
-                      ),
-                      InkWell(
-                        onTap: () {
-                          pickImage();
-                        },
+                        : Container(),
+                (invalidImage == false &&
+                        _imageUrlContoller.text.trim().isNotEmpty)
+                    ? Padding(
+                        padding: const EdgeInsets.all(15.0),
                         child: Center(
-                          child: Card(
                             child: Container(
-                              width: 250,
-                              height: 40,
-                              color: Colors.yellow[800],
-                              child: Center(
-                                child: Text(
-                                  'Upload from Gallery',
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w400),
-                                ),
-                              ),
-                            ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            boxShadow: const [
+                              BoxShadow(blurRadius: 20),
+                            ],
                           ),
-                        ),
-                      ),
-                      SizedBox(
-                        height: 10,
-                      ),
-                      invalidImage
-                          ? Container(
-                              child: Text('Invalid URL'),
-                            )
-                          : Container(),
-                      urlImage
-                          ? Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Align(
-                                alignment: Alignment.topRight,
-                                child: IconButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      urlImage = false;
-                                      _imageUrlContoller.clear();
-                                    });
-                                  },
-                                  icon: Icon(Icons.close),
-                                ),
-                              ),
-                            )
-                          : Container(),
-                      urlImage
-                          ? Padding(
-                              padding: const EdgeInsets.all(15.0),
-                              child: Center(
-                                  child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  boxShadow: const [
-                                    BoxShadow(blurRadius: 20),
-                                  ],
-                                ),
-                                margin: EdgeInsets.fromLTRB(0, 0, 0, 8),
-                                height: 160,
-                                child: Image.network(
-                                  _imageUrlContoller.text,
-                                  fit: BoxFit.cover,
-                                ),
-                              )),
-                            )
-                          : Container(),
-                      galImage
-                          ? Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Align(
-                                alignment: Alignment.topRight,
-                                child: IconButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      galImage = false;
-                                      _image = null;
-                                    });
-                                  },
-                                  icon: Icon(Icons.close),
-                                ),
-                              ),
-                            )
-                          : Container(),
-                      galImage
-                          ? Padding(
-                              padding: const EdgeInsets.all(15.0),
-                              child: Center(
-                                  child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  boxShadow: const [
-                                    BoxShadow(blurRadius: 20),
-                                  ],
-                                ),
-                                margin: EdgeInsets.fromLTRB(0, 0, 0, 8),
-                                height: 160,
-                                child: Image.file(
-                                  File(_image!.path),
-                                  fit: BoxFit.cover,
-                                ),
-                              )),
-                            )
-                          : SizedBox(
-                              height: MediaQuery.of(context).size.height * .40)
-                    ],
-                  ),
-                ),
-              ),
+                          margin: EdgeInsets.fromLTRB(0, 0, 0, 8),
+                          height: 160,
+                          child: Image.network(
+                            _imageUrlContoller.text,
+                            fit: BoxFit.cover,
+                          ),
+                        )),
+                      )
+                    : Container(),
+              ],
             ),
+          ),
+        ),
+      ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.deepPurple,
         child: Icon(
           Icons.save,
         ),
         onPressed: () async {
-          submit();
+          print(invalidImage);
+          if (invalidImage) {
+            _imageUrlContoller.clear();
+            final snackBar = SnackBar(
+              content: const Text('Please Enter Valid Details!'),
+            );
+            ScaffoldMessenger.of(context).showSnackBar(snackBar);
+          }
+          if (invalidImage == false) submit();
         },
       ),
     );

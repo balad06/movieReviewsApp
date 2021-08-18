@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:moviereviewsapp/models/movie.dart';
@@ -14,11 +15,20 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   List<Movie> listMovies = [];
+  List<Movie> fullMovieList = [];
 
   void getMovies() async {
+    final FirebaseAuth auth = FirebaseAuth.instance;
+    final User? user = auth.currentUser;
+    final uid = user!.uid;
     final box = await Hive.openBox<Movie>('movie');
     setState(() {
-      listMovies = box.values.toList();
+      fullMovieList = box.values.toList();
+    });
+    fullMovieList.forEach((element) {
+      if (element.uID == uid) {
+        listMovies.add(element);
+      }
     });
   }
 
@@ -54,6 +64,9 @@ class _MyHomePageState extends State<MyHomePage> {
         actions: [
           IconButton(
             onPressed: () {
+              final FirebaseAuth auth = FirebaseAuth.instance;
+              final User? user = auth.currentUser;
+              final uid = user!.uid;
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) {
@@ -64,7 +77,8 @@ class _MyHomePageState extends State<MyHomePage> {
                             id: '-1',
                             movieDirect: '',
                             movieName: '',
-                            posterUrl: ''));
+                            posterUrl: '',
+                            uID: uid.toString()));
                   },
                 ),
               );

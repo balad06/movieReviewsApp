@@ -10,9 +10,13 @@ class Movie {
   final String movieDirect;
   @HiveField(3)
   final String posterUrl;
+  @HiveField(4)
+  final String uID;
   Movie(
       {required this.id,
       required this.movieName,
       required this.movieDirect,
-      this.posterUrl = ''});
+      this.posterUrl = '',
+      required this.uID,
+      });
 }

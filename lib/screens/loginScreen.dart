@@ -194,36 +194,50 @@ class _LoginPageState extends State<LoginPage> {
         userCredential = await _auth.signInWithEmailAndPassword(
             email: _authData['email']!.trim(),
             password: _authData['password']!.trim());
-      } else {
         setState(() {
           _isLoading = false;
+        });
+        Navigator.of(context).pushReplacementNamed(MyHomePage.id);
+      } else {
+        setState(() {
+          _isLoading = true;
         });
         userCredential = await _auth.createUserWithEmailAndPassword(
             email: _authData['email']!.trim(),
             password: _authData['password']!.trim());
+        print(_authData['email']!.trim());
         await FirebaseFirestore.instance
             .collection('users')
             .doc(userCredential.user?.uid)
             .set({
           'email': _authData['email'],
         });
+        userCredential = await _auth.signInWithEmailAndPassword(
+            email: _authData['email']!.trim(),
+            password: _authData['password']!.trim());
+        Navigator.of(context).pushReplacementNamed(MyHomePage.id);
+        setState(() {
+          _isLoading = false;
+        });
       }
-    } on PlatformException catch (error) {
+    } catch (error) {
       setState(() {
         _isLoading = false;
       });
       print(error);
       var errorMessage = 'Couldn\'t authenticate ';
-      if (error.toString().contains('EMAIL_EXISTS')) {
-        errorMessage = 'email is already in use';
-      } else if (error.toString().contains('INVALID_EMAIL')) {
-        errorMessage = 'INVALID_EMAIL ';
-      } else if (error.toString().contains('WEAK_PASSWORD')) {
-        errorMessage = 'WEAK_PASSWORD';
+      if (error.toString().contains('The email address is already in use')) {
+        setState(() {
+          errorMessage = 'email is already in use';
+        });
       } else if (error.toString().contains('EMAIL_NOT_FOUND')) {
-        errorMessage = 'EMAIL_NOT_FOUND';
-      } else if (error.toString().contains('INVALID_PASSWORD')) {
-        errorMessage = 'INVALID_PASSWORD';
+        setState(() {
+          errorMessage = 'EMAIL_NOT_FOUND';
+        });
+      } else if (error.toString().contains('The password is invalid')) {
+        setState(() {
+          errorMessage = 'INVALID_PASSWORD';
+        });
       }
       _showErrorDialog(errorMessage);
     }

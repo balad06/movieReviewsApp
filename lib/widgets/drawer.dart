@@ -71,6 +71,9 @@ class MainDrawer extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               onTap: () {
+                final FirebaseAuth auth = FirebaseAuth.instance;
+                final User? user = auth.currentUser;
+                final uid = user!.uid;
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) {
@@ -81,7 +84,8 @@ class MainDrawer extends StatelessWidget {
                               id: '-1',
                               movieDirect: '',
                               movieName: '',
-                              posterUrl: ''));
+                              posterUrl: '',
+                              uID: uid));
                     },
                   ),
                 );
@@ -108,8 +112,7 @@ class MainDrawer extends StatelessWidget {
                 await FirebaseAuth.instance.signOut();
                 Navigator.pushAndRemoveUntil(
                     context,
-                    MaterialPageRoute(
-                        builder: (context) => LoginPage()),
+                    MaterialPageRoute(builder: (context) => LoginPage()),
                     (route) => false);
               },
             ),
