@@ -246,8 +246,20 @@ class _AddEditMoviesState extends State<AddEditMovies> {
                       }
                       return null;
                     },
+                    onChanged: (value) {
+                      setState(() {
+                        bool _validURL =
+                            Uri.parse(_imageUrlContoller.text).isAbsolute;
+                        if (_validURL) {
+                          setState(() {
+                            invalidImage = false;
+                          });
+                        } else {
+                          invalidImage = true;
+                        }
+                      });
+                    },
                     onFieldSubmitted: (value) {
-                      print(_imageUrlContoller.text);
                       setState(() {
                         bool _validURL =
                             Uri.parse(_imageUrlContoller.text).isAbsolute;
