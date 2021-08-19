@@ -1,5 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:hive/hive.dart';
 import 'package:moviereviewsapp/models/movie.dart';
 import 'package:moviereviewsapp/screens/addEditMovie.dart';
 import 'package:moviereviewsapp/widgets/drawer.dart';
@@ -107,10 +109,24 @@ class _MovieDetailsState extends State<MovieDetails> {
         padding: const EdgeInsets.all(8.0),
         child: FloatingActionButton(
           backgroundColor: Colors.deepOrange,
-          onPressed: () {
+          onPressed: () async {
+            final FirebaseAuth auth = FirebaseAuth.instance;
+            final User? user = auth.currentUser;
+            final uid = user!.uid;
+            List<Movie> fullMovieList = [];
+            List<Movie> listMovies = [];
+            final box = await Hive.openBox<Movie>('movie');
+            setState(() {
+              fullMovieList = box.values.toList();
+            });
+            fullMovieList.forEach((element) {
+              if (element.uID == uid) {
+                listMovies.add(element);
+              }
+            });
             Navigator.of(context).push(MaterialPageRoute(
               builder: (context) {
-                return AddEditMovies(true, widget.position, widget.movieModel);
+                return AddEditMovies(true, widget.position, widget.movieModel,listMovies.length);
               },
             ));
           },

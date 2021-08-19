@@ -10,7 +10,8 @@ class AddEditMovies extends StatefulWidget {
   final bool isEdit;
   final int position;
   final Movie? movieModel;
-  AddEditMovies(this.isEdit, this.position, this.movieModel);
+  final int length;
+  AddEditMovies(this.isEdit, this.position, this.movieModel, this.length);
 
   @override
   _AddEditMoviesState createState() => _AddEditMoviesState();
@@ -79,13 +80,35 @@ class _AddEditMoviesState extends State<AddEditMovies> {
             movieName: controllerMName.text,
             movieDirect: controllerMDirect.text,
             posterUrl: _imageUrlContoller.text,
-            uID: uid.toString()
-            );
+            uID: uid.toString());
         if (widget.isEdit) {
+          List<Movie> listMovies = [];
+          List<Movie> fullMovieList = [];
+          print('index edited${widget.position}');
+          print(movieData.movieName);
+          print(widget.length);
           var box = await Hive.openBox<Movie>('movie');
           box.putAt(widget.position, movieData);
-          Navigator.pushAndRemoveUntil(context,
-              MaterialPageRoute(builder: (_) => MyHomePage()), (r) => false);
+          setState(() {
+            fullMovieList = box.values.toList();
+          });
+          fullMovieList.forEach((element) {
+            if (element.uID == uid) {
+              listMovies.add(element);
+            }
+          });
+          print('AfterEdit:${listMovies.length}');
+          if (listMovies.length == widget.length) {
+            Navigator.pushAndRemoveUntil(context,
+                MaterialPageRoute(builder: (_) => MyHomePage()), (r) => false);
+          } else if (listMovies.length > widget.length) {
+            print('hello');
+            final box = Hive.box<Movie>('movie');
+            box.deleteAt(widget.position + 1);
+            print('After Remove:${listMovies.length}');
+            Navigator.pushAndRemoveUntil(context,
+                MaterialPageRoute(builder: (_) => MyHomePage()), (r) => false);
+          }
         } else {
           var box = await Hive.openBox<Movie>('movie');
           box.add(movieData);

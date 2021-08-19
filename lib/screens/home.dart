@@ -21,11 +21,14 @@ class _MyHomePageState extends State<MyHomePage> {
     final FirebaseAuth auth = FirebaseAuth.instance;
     final User? user = auth.currentUser;
     final uid = user!.uid;
+    print('user$uid');
     final box = await Hive.openBox<Movie>('movie');
     setState(() {
       fullMovieList = box.values.toList();
     });
+    print('MovieList');
     fullMovieList.forEach((element) {
+      print(element.uID);
       if (element.uID == uid) {
         listMovies.add(element);
       }
@@ -78,7 +81,8 @@ class _MyHomePageState extends State<MyHomePage> {
                             movieDirect: '',
                             movieName: '',
                             posterUrl: '',
-                            uID: uid.toString()));
+                            uID: uid.toString()),
+                        listMovies.length);
                   },
                 ),
               );
@@ -185,7 +189,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                             listMovies[i].movieDirect.length <=
                                                     30
                                                 ? listMovies[i].movieDirect
-                                                : '${listMovies[i].movieDirect.substring(0, 29)}...',
+                                                : '${listMovies[i].movieDirect.substring(0, 27)}...',
                                             softWrap: true,
                                             style: TextStyle(
                                                 fontSize: 15,
@@ -202,11 +206,16 @@ class _MyHomePageState extends State<MyHomePage> {
                                   children: [
                                     IconButton(
                                         onPressed: () {
+                                          print('index:$i');
+                                          print(listMovies[i].movieName);
                                           Navigator.of(context).push(
                                             MaterialPageRoute(
                                               builder: (context) {
                                                 return AddEditMovies(
-                                                    true, i, listMovies[i]);
+                                                    true,
+                                                    i,
+                                                    listMovies[i],
+                                                    listMovies.length);
                                               },
                                             ),
                                           );
@@ -215,7 +224,9 @@ class _MyHomePageState extends State<MyHomePage> {
                                     IconButton(
                                         onPressed: () {
                                           final box = Hive.box<Movie>('movie');
+                                          print('deleting at $i');
                                           box.deleteAt(i);
+                                          print('deleting');
                                           setState(() => {
                                                 listMovies.removeAt(i),
                                               });

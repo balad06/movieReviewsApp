@@ -1,13 +1,19 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import 'package:moviereviewsapp/models/movie.dart';
 import 'package:moviereviewsapp/screens/addEditMovie.dart';
 import 'package:moviereviewsapp/screens/home.dart';
 import 'package:moviereviewsapp/screens/loginScreen.dart';
 
-class MainDrawer extends StatelessWidget {
+class MainDrawer extends StatefulWidget {
   const MainDrawer({Key? key}) : super(key: key);
 
+  @override
+  _MainDrawerState createState() => _MainDrawerState();
+}
+
+class _MainDrawerState extends State<MainDrawer> {
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -70,10 +76,21 @@ class MainDrawer extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
-              onTap: () {
+              onTap: () async {
                 final FirebaseAuth auth = FirebaseAuth.instance;
                 final User? user = auth.currentUser;
                 final uid = user!.uid;
+                List<Movie> fullMovieList = [];
+                List<Movie> listMovies = [];
+                final box = await Hive.openBox<Movie>('movie');
+                setState(() {
+                  fullMovieList = box.values.toList();
+                });
+                fullMovieList.forEach((element) {
+                  if (element.uID == uid) {
+                    listMovies.add(element);
+                  }
+                });
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) {
@@ -85,7 +102,8 @@ class MainDrawer extends StatelessWidget {
                               movieDirect: '',
                               movieName: '',
                               posterUrl: '',
-                              uID: uid));
+                              uID: uid),
+                          listMovies.length);
                     },
                   ),
                 );
